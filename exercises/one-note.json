@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "title": "Подстройка: Ре малой октавы",
+  "description": "Задача — найти D3 и удержать её без напряжения. Между попытками отдыхай.",
+  "goals": ["Улучшить точность первой попытки"],
+  "sections": [
+    {
+      "title": "D3 — Ре",
+      "notes": [
+        { "note": "D3", "previewSeconds": 4, "holdSeconds": 4, "transitionSeconds": 2 },
+        { "note": "D3", "previewSeconds": 3, "holdSeconds": 4, "transitionSeconds": 2 },
+        { "note": "D3", "previewSeconds": 2, "holdSeconds": 4, "transitionSeconds": 2 }
+      ]
+    }
+  ]
+}

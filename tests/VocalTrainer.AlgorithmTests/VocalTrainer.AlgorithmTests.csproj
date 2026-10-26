@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/VocalTrainer/NoteCatalog.cs" Link="NoteCatalog.cs" />
+    <Compile Include="../../src/VocalTrainer/PitchDetector.cs" Link="PitchDetector.cs" />
+    <Compile Include="../../src/VocalTrainer/ExerciseModels.cs" Link="ExerciseModels.cs" />
+    <Compile Include="../../src/VocalTrainer/Assessment.cs" Link="Assessment.cs" />
+    <Compile Include="../../src/VocalTrainer/SessionLogger.cs" Link="SessionLogger.cs" />
+    <Compile Include="../../src/VocalTrainer/Practice/FreeSingingAnalysis.cs" Link="FreeSingingAnalysis.cs" />
+    <Compile Include="../../src/VocalTrainer/ViewModels/FreeSingingViewModel.cs" Link="FreeSingingViewModel.cs" />
+    <Compile Include="../../src/VocalTrainer/Infrastructure/RelayCommand.cs" Link="RelayCommand.cs" />
+    <Compile Include="../../src/VocalTrainer/ViewModels/MelodyViewModel.cs" Link="MelodyViewModel.cs" />
+    <Compile Include="../../src/VocalTrainer/Infrastructure/ObservableObject.cs" Link="ObservableObject.cs" />
+    <Compile Include="../../src/VocalTrainer/Infrastructure/ShortcutSettings.cs" Link="ShortcutSettings.cs" />
+    <Compile Include="../../src/VocalTrainer/Infrastructure/PausableClock.cs" Link="PausableClock.cs" />
+    <Compile Include="../../src/VocalTrainer/Melody/MidiSongReader.cs" Link="MidiSongReader.cs" />
+    <Compile Include="../../src/VocalTrainer/Melody/Lyrics.cs" Link="Lyrics.cs" />
+    <Compile Include="../../src/VocalTrainer/Melody/SongLibrary.cs" Link="SongLibrary.cs" />
+    <Compile Include="../../src/VocalTrainer/ViewModels/LyricsViewModel.cs" Link="LyricsViewModel.cs" />
+    <Compile Include="../../src/VocalTrainer/Melody/MelodyPractice.cs" Link="MelodyPractice.cs" />
+    <Compile Include="../../src/VocalTrainer/Practice/EarTrainingLogic.cs" Link="EarTrainingLogic.cs" />
+    <Compile Include="../../src/VocalTrainer/Practice/RangeScoring.cs" Link="RangeScoring.cs" />
+    <Compile Include="../../src/VocalTrainer/Practice/EditorModels.cs" Link="EditorModels.cs" />
+    <Compile Include="../../src/VocalTrainer/Practice/ExerciseLibrary.cs" Link="ExerciseLibrary.cs" />
+    <Compile Include="../../src/VocalTrainer/Practice/RangeHistoryStore.cs" Link="RangeHistoryStore.cs" />
+    <Content Include="../fixtures/*.mid" Link="fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

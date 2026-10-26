@@ -1,0 +1,15 @@
+{
+  "xamlAndCsprojWellFormed": true,
+  "jsonDocumentsValid": true,
+  "csDelimiterHeuristicIssues": [],
+  "csFilesScanned": 31,
+  "missingMelodyBindings": [],
+  "midiDemo": {
+    "format": 1,
+    "ticksPerBeat": 480,
+    "tracks": 2,
+    "noteOnCount": 8,
+    "tempoCount": 2
+  },
+  "note": "Static checks only; .NET build and WPF runtime tests NOT executed: .NET SDK unavailable in this Linux container."
+}

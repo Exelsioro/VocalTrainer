@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "title": "Плавное движение C3–D3–E3",
+  "description": "Небольшие мелодические шаги для первого этапа обучения. Держи комфортную громкость; при неудобстве транспонируй ноты в редакторе.",
+  "goals": ["Уверенно находить нужную высоту", "Отдельно тренировать удержание и переходы"],
+  "tasks": ["Прослушать эталон", "Спеть ноту на ммм", "Оценить стабильность без форсирования"],
+  "sections": [
+    {
+      "title": "Нахождение низких нот",
+      "description": "Не старайся звучать как исполнитель; сравнивай чистоту высоты.",
+      "notes": [
+        { "note": "C3", "previewSeconds": 2.5, "holdSeconds": 3, "transitionSeconds": 2, "toleranceCents": 50, "requiredAccuracy": 0.65, "maxAttempts": 2, "autoRepeatOnFail": true },
+        { "note": "D3", "previewSeconds": 2.5, "holdSeconds": 3, "transitionSeconds": 2, "toleranceCents": 50, "requiredAccuracy": 0.65, "maxAttempts": 2, "autoRepeatOnFail": true }
+      ]
+    },
+    {
+      "title": "Подъём и возврат",
+      "notes": [
+        { "note": "E3", "previewSeconds": 2, "holdSeconds": 3, "transitionSeconds": 2 },
+        { "note": "D3", "previewSeconds": 2, "holdSeconds": 3, "transitionSeconds": 2 },
+        { "note": "C3", "previewSeconds": 2, "holdSeconds": 3, "transitionSeconds": 3 }
+      ]
+    }
+  ]
+}

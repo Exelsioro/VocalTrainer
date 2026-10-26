@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>VocalTrainer</AssemblyName>
+    <RootNamespace>VocalTrainer</RootNamespace>
+    <Version>0.5.1</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <Content Include="../../exercises/*.json" Link="exercises/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../midi/*.mid" Link="midi/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../midi/*.lrc" Link="midi/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

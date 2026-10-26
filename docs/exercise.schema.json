@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/vocaltrainer/exercise-v1.schema.json",
+  "title": "VocalTrainer exercise v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "title", "sections"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "description": { "type": "string", "maxLength": 3000 },
+    "goals": { "type": "array", "maxItems": 30, "items": { "type": "string" } },
+    "tasks": { "type": "array", "maxItems": 30, "items": { "type": "string" } },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "notes"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "description": { "type": "string" },
+          "notes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["note", "previewSeconds", "holdSeconds", "transitionSeconds"],
+              "properties": {
+                "note": { "type": "string", "pattern": "^[A-Ga-g][#♯b♭]?-?[0-9]+$" },
+                "previewSeconds": { "type": "number", "minimum": 0.2, "maximum": 30 },
+                "holdSeconds": { "type": "number", "minimum": 0.5, "maximum": 60 },
+                "transitionSeconds": { "type": "number", "minimum": 0, "maximum": 30 },
+                "toleranceCents": { "type": "number", "minimum": 10, "maximum": 100 },
+                "requiredAccuracy": { "type": "number", "minimum": 0.1, "maximum": 1.0 },
+                "autoRepeatOnFail": { "type": "boolean" },
+                "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 8 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

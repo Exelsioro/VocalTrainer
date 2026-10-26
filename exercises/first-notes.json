@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "title": "Первые ноты: До — Ре — Ми",
+  "description": "Слушай эталон в наушниках; когда он закончится, мягко удерживай ноту голосом. Не форсируй громкость и не стремись к высоким нотам.",
+  "goals": ["Уверенно находить удобную высоту", "Удерживать ноту без скольжения"],
+  "tasks": ["Повторить До3, Ре3 и Ми3", "Следить за отклонением в центах"],
+  "sections": [
+    {
+      "title": "Одна нота",
+      "description": "Спокойное повторение До малой октавы",
+      "notes": [
+        { "note": "C3", "previewSeconds": 2.0, "holdSeconds": 3.0, "transitionSeconds": 1.0 },
+        { "note": "C3", "previewSeconds": 2.0, "holdSeconds": 3.0, "transitionSeconds": 1.5 }
+      ]
+    },
+    {
+      "title": "Смена высоты",
+      "description": "Вверх на тон и обратно",
+      "notes": [
+        { "note": "C3", "previewSeconds": 1.5, "holdSeconds": 3.0, "transitionSeconds": 1.0 },
+        { "note": "D3", "previewSeconds": 1.5, "holdSeconds": 3.0, "transitionSeconds": 1.0 },
+        { "note": "E3", "previewSeconds": 1.5, "holdSeconds": 3.0, "transitionSeconds": 1.0 },
+        { "note": "D3", "previewSeconds": 1.5, "holdSeconds": 3.0, "transitionSeconds": 1.0 },
+        { "note": "C3", "previewSeconds": 1.5, "holdSeconds": 3.0, "transitionSeconds": 0.0 }
+      ]
+    }
+  ]
+}

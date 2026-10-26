@@ -1,0 +1,16 @@
+{
+  "version": "0.5.1",
+  "checks": {
+    "xaml_xml": "passed",
+    "xaml_event_handlers": "passed",
+    "main_viewmodel_references": "passed",
+    "midi_pause_repeat_references": "passed",
+    "shortcut_identifiers_unique": "passed",
+    "algorithm_test_files_linked": "passed",
+    "exercise_json_parses": "passed",
+    "powershell_script_present": "passed",
+    "windows_compilation": "not_runnable_no_dotnet_sdk",
+    "microphone_runtime_test": "not_runnable_no_windows"
+  },
+  "shortcut_actions": 24
+}

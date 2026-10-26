@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "title": "Точность и удержание: C3–D3",
+  "description": "Слушай эталон и мягко повторяй. Не ускоряйся и не дави на голос. При неудаче нота повторяется не более 3 раз.",
+  "goals": ["Уверенное первоначальное попадание", "Удержание без дрейфа"],
+  "tasks": ["Набрать минимум 75% точных распознанных кадров в пределах ±40 центов", "Отследить время до попадания"],
+  "sections": [
+    {
+      "title": "Поиск высоты",
+      "description": "Негромкое ммм, с отдыхом между нотами",
+      "notes": [
+        { "note": "C3", "previewSeconds": 2.5, "holdSeconds": 4,
+          "transitionSeconds": 2, "toleranceCents": 40,
+          "requiredAccuracy": 0.75, "autoRepeatOnFail": true, "maxAttempts": 3 },
+        { "note": "D3", "previewSeconds": 2.5, "holdSeconds": 4,
+          "transitionSeconds": 2, "toleranceCents": 40,
+          "requiredAccuracy": 0.75, "autoRepeatOnFail": true, "maxAttempts": 3 },
+        { "note": "C3", "previewSeconds": 2, "holdSeconds": 4,
+          "transitionSeconds": 3, "toleranceCents": 30,
+          "requiredAccuracy": 0.75, "autoRepeatOnFail": true, "maxAttempts": 2 }
+      ]
+    }
+  ]
+}
