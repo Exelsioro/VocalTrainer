@@ -38,11 +38,11 @@ public sealed class EditableNote : ObservableObject
 public static class ExerciseEditorDocument
 {
     public static ExerciseDocument Build(string title, string description, string goalsText, string tasksText,
-        IEnumerable<EditableSection> sections)
+        IEnumerable<EditableSection> sections, string mode = "notes", bool playReference = true)
     {
         var doc = new ExerciseDocument
         {
-            Title = title.Trim(), Description = description.Trim(),
+            Title = title.Trim(), Description = description.Trim(), Mode = mode, PlayReference = playReference,
             Goals = SplitLines(goalsText), Tasks = SplitLines(tasksText),
             Sections = sections.Select(s => new ExerciseSection
             {

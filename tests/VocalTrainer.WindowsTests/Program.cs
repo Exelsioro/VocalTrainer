@@ -9,6 +9,8 @@ using VocalTrainer;
 using VocalTrainer.ViewModels;
 using VocalTrainer.Controls;
 using VocalTrainer.Melody;
+using VocalTrainer.Practice;
+using VocalTrainer.Services;
 
 internal static class Program
 {
@@ -51,7 +53,7 @@ internal static class Program
                     VerifyFreeSinging(window, vm);
                     if (!string.IsNullOrWhiteSpace(screenshotDirectory)) SaveScreenshot(window, screenshotDirectory, "free-singing.png");
                 }
-                if (index == 1) VerifyExerciseLibrary(window, vm);
+                if (index == 1) { VerifyExerciseLibrary(window, vm); VerifySequenceExercise(window, screenshotDirectory); }
                 if (index is 3 or 4)
                 {
                     var table = (DataGrid)window.FindName(index == 3 ? "RangeResultsTable" : "ExerciseNotesTable");
@@ -198,6 +200,123 @@ internal static class Program
     {
         foreach (var label in Descendants<TextBlock>(table).Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text)))
             RequireContrast(label.Foreground, BackgroundBehind(label), "table cell text");
+    }
+
+    private static void VerifySequenceExercise(MainWindow window, string? screenshots)
+    {
+        var originalContext = window.DataContext;
+        using var audio = new TestAudio();
+        using var trainer = new MainViewModel(audio, new TestDialogs());
+        var document = new ExerciseDocument { Title = "Проверка фразы", Mode = "sequence", Sections =
+            [new() { Title = "Две ноты", Notes = [new() { Note = "C3", HoldSeconds = .6, TransitionSeconds = .1 },
+                new() { Note = "D3", HoldSeconds = .6, TransitionSeconds = 0 }] }] };
+        void WaitFor(Func<bool> condition, double timeout = 8)
+        {
+            var watch = Stopwatch.StartNew();
+            while (!condition() && watch.Elapsed.TotalSeconds < timeout) { DrainDispatcher(); Thread.Sleep(15); }
+            if (!condition()) throw new Exception("Sequence exercise timed out: " + trainer.ExercisePhase);
+        }
+        try
+        {
+            trainer.SelectedExercise = new ExerciseLibraryEntry(document, "sequence-test.json");
+            trainer.AutoRepeatFailed = false; trainer.SelectedTabIndex = 1;
+            window.DataContext = trainer; DrainDispatcher();
+            if (((ComboBox)window.FindName("ExerciseModeSelector")).SelectedValue?.ToString() != "sequence" || trainer.ExerciseEditor.Mode != "sequence")
+                throw new Exception("Sequence mode did not load into exercise and constructor selectors.");
+            trainer.StartExerciseCommand.Execute(null);
+            if (audio.Tones.Count != 1 || trainer.ExercisePhase != "СЛУШАЙ ЭТАЛОН") throw new Exception("Phrase did not start with its full reference.");
+            trainer.ToggleExercisePauseCommand.Execute(null); int pausedTones = audio.Tones.Count;
+            Thread.Sleep(100); DrainDispatcher();
+            if (!trainer.ExercisePaused || audio.Sounding || audio.Tones.Count != pausedTones) throw new Exception("Reference pause did not silence the phrase.");
+            trainer.ToggleExercisePauseCommand.Execute(null);
+            WaitFor(() => trainer.ExercisePhase == "ПОВТОРИ ФРАЗУ");
+            if (audio.Tones.Count != 3 || Math.Abs(audio.Tones[^1] - NoteCatalog.ToFrequency(50)) > .01 || audio.Sounding)
+                throw new Exception("Reference notes were interleaved with singing or had the wrong pitch.");
+            trainer.SelectedFeedbackMode = trainer.FeedbackModes.Single(m => m.Code == "ear");
+            trainer.ToggleExercisePauseCommand.Execute(null); int pausedFrames = trainer.SequenceVoice.Count;
+            trainer.ApplyPitchMeasurement(new(NoteCatalog.ToFrequency(48), .1, .99), 0); Thread.Sleep(80); DrainDispatcher();
+            if (trainer.SequenceVoice.Count != pausedFrames || !trainer.FeedbackHidden) throw new Exception("Paused phrase collected microphone scores or revealed hidden feedback.");
+            trainer.ToggleExercisePauseCommand.Execute(null);
+            long ms = 0;
+            var singingWatch = Stopwatch.StartNew();
+            while (trainer.ExerciseActive && singingWatch.Elapsed.TotalSeconds < 4)
+            {
+                DrainDispatcher();
+                if (trainer.ExercisePhase == "ПОВТОРИ ФРАЗУ")
+                    trainer.ApplyPitchMeasurement(new(NoteCatalog.ToFrequency(ExerciseIO.ParseMidi(trainer.NoteHeading)), .1, .99), ms += 35);
+                Thread.Sleep(35);
+            }
+            WaitFor(() => !trainer.ExerciseActive);
+            var graph = (PianoRoll)window.FindName("ExerciseSequenceGraph"); DrainDispatcher();
+            if (!trainer.LatestAssessmentText.Contains("2/2") || graph.Targets?.Count != 2 || graph.Voice?.Count < 10 ||
+                ((PitchGraph)window.FindName("ExercisePitchGraph")).Points?.Count < 10)
+                throw new Exception("Phrase scores or tuner/performance graphs were not rendered: " + trainer.LatestAssessmentText);
+            graph.BringIntoView(); DrainDispatcher();
+            if (!string.IsNullOrWhiteSpace(screenshots)) SaveScreenshot(window, screenshots, "sequence-exercise.png");
+            Console.WriteLine("OK sequence exercise: full reference, paused audio, timed singing, note assessments and tuner graphs");
+            trainer.SelectedFeedbackMode = trainer.FeedbackModes.Single(m => m.Code == "test");
+            trainer.ExercisePlayReference = false; int beforeControl = audio.Tones.Count;
+            trainer.StartExerciseCommand.Execute(null); WaitFor(() => trainer.ExercisePhase == "ПОВТОРИ ФРАЗУ");
+            var controlWatch = Stopwatch.StartNew();
+            while (trainer.ExerciseActive && controlWatch.Elapsed.TotalSeconds < 4)
+            {
+                DrainDispatcher();
+                if (trainer.ExercisePhase == "ПОВТОРИ ФРАЗУ")
+                {
+                    trainer.ApplyPitchMeasurement(new(NoteCatalog.ToFrequency(ExerciseIO.ParseMidi(trainer.NoteHeading) + 12), .1, .99), ms += 35);
+                    if (trainer.SequenceVoice.Count != 0 || !double.IsNaN(trainer.TunerCents)) throw new Exception("Control mode leaked live feedback.");
+                }
+                Thread.Sleep(35);
+            }
+            WaitFor(() => !trainer.ExerciseActive); DrainDispatcher();
+            if (!trainer.LatestAssessmentText.Contains("0/2") || !trainer.LatestAssessmentText.Contains("1200") ||
+                trainer.SequenceVoice.Count < 10 || trainer.ExercisePitchPoints.Count < 10 || audio.Tones.Count != beforeControl)
+                throw new Exception("Control mode did not reveal a failed phrase result or played a disabled reference.");
+            trainer.SelectedFeedbackMode = trainer.FeedbackModes.Single(m => m.Code == "live");
+            Console.WriteLine("OK sequence control mode: no reference, hidden live feedback and final octave-error analysis");
+            trainer.ExercisePlayReference = false; int beforeSilent = audio.Tones.Count;
+            trainer.StartExerciseCommand.Execute(null);
+            if (trainer.ExercisePhase != "ПРИГОТОВЬСЯ" || audio.Tones.Count != beforeSilent) throw new Exception("Disabled reference still played.");
+            trainer.SkipStepCommand.Execute(null); WaitFor(() => !trainer.ExerciseActive);
+            trainer.ExercisePlayReference = true; trainer.StartExerciseCommand.Execute(null); int beforeRepeat = audio.Tones.Count;
+            trainer.RepeatStepCommand.Execute(null); WaitFor(() => audio.Tones.Count > beforeRepeat);
+            trainer.StopExerciseCommand.Execute(null); WaitFor(() => !trainer.ExerciseActive);
+            if (audio.Sounding || trainer.ExercisePhase != "ОСТАНОВЛЕНО") throw new Exception("Sequence cancellation did not stop audio.");
+            trainer.SelectedTabIndex = 4; DrainDispatcher();
+            var editorMode = (ComboBox)window.FindName("EditorExerciseModeSelector"); editorMode.SelectedValue = "notes"; DrainDispatcher();
+            if (trainer.ExerciseEditor.Mode != "notes") throw new Exception("Constructor mode selection is not bound.");
+            Console.WriteLine("OK sequence controls: optional reference, phrase skip/repeat, stop and constructor mode binding");
+        }
+        finally { window.DataContext = originalContext; DrainDispatcher(); }
+    }
+
+    private sealed class TestAudio : IAudioService
+    {
+        public List<double> Tones { get; } = [];
+        public bool Sounding { get; private set; }
+        public bool IsMonitoring { get; private set; } = true;
+        public bool IsRecording => false;
+        public event EventHandler<Exception?>? MonitoringStopped { add { } remove { } }
+        public void StartMonitoring(int deviceId) => IsMonitoring = true;
+        public void StopMonitoring() => IsMonitoring = false;
+        public PitchMeasurement ReadPitch(double noiseGateRms = PitchDetector.DefaultGateRms) => new(null, 0, 0);
+        public void PlayTone(double frequency, double seconds) { Tones.Add(frequency); Sounding = true; }
+        public void StopTone() => Sounding = false;
+        public string StartRecording(string directory) => throw new InvalidOperationException("No recording in sequence tests.");
+        public string? FinishRecording() => null;
+        public string? TakeAutomaticallyFinishedRecording() => null;
+        public void Dispose() { Sounding = false; IsMonitoring = false; }
+    }
+    private sealed class TestDialogs : IDialogService
+    {
+        public string? SelectExercise() => null;
+        public string? SelectMidi() => null;
+        public string? SelectLyrics() => null;
+        public string? SaveLyrics() => null;
+        public string? SaveExercise() => null;
+        public void Error(string title, string message) => throw new Exception(title + ": " + message);
+        public void Info(string title, string message) { }
+        public void OpenDataFolder(string path) { }
     }
 
     private static void VerifySongLibrary(MainWindow window, string? screenshots)

@@ -20,6 +20,11 @@ public sealed class ExerciseEditorViewModel : ObservableObject
     private EditableSection? _selectedSection;
     private EditableNote? _selectedStep;
     private string _status = "Создай упражнение или открой готовый JSON.";
+    private string _mode = "notes";
+    private bool _playReference = true;
+    public IReadOnlyList<ExerciseModeOption> Modes => ExerciseModeOption.All;
+    public string Mode { get => _mode; set => Set(ref _mode, value); }
+    public bool PlayReference { get => _playReference; set => Set(ref _playReference, value); }
 
     public ObservableCollection<EditableSection> Sections { get; } = [];
     public string Title { get => _title; set => Set(ref _title, value); }
@@ -82,6 +87,7 @@ public sealed class ExerciseEditorViewModel : ObservableObject
     {
         if (!CanEdit) return;
         Title = "Моё упражнение"; Description = "Тренировка контроля высоты";
+        Mode = "notes"; PlayReference = true;
         GoalsText = "Точное попадание"; TasksText = "Удерживать ноту без напряжения";
         Sections.Clear();
         var section = new EditableSection { Title = "Разминка" };
@@ -95,6 +101,7 @@ public sealed class ExerciseEditorViewModel : ObservableObject
     {
         if (!CanEdit) return;
         Title = document.Title; Description = document.Description;
+        Mode = document.Mode; PlayReference = document.PlayReference;
         GoalsText = string.Join(Environment.NewLine, document.Goals ?? []);
         TasksText = string.Join(Environment.NewLine, document.Tasks ?? []);
         Sections.Clear();
@@ -118,7 +125,7 @@ public sealed class ExerciseEditorViewModel : ObservableObject
         if (!CanEdit) return;
         try
         {
-            var doc = ExerciseEditorDocument.Build(Title, Description, GoalsText, TasksText, Sections);
+            var doc = ExerciseEditorDocument.Build(Title, Description, GoalsText, TasksText, Sections, Mode, PlayReference);
             string? file = _dialogs.SaveExercise();
             if (file is null) return;
             // Write atomically, so a failure cannot corrupt an existing exercise.

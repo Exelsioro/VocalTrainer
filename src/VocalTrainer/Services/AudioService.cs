@@ -9,7 +9,22 @@ public sealed record MicrophoneOption(int Id, string Name)
 }
 
 /// <summary>Owns mic buffers, tone playback and *opt-in* WAV files. No audio is stored during monitoring.</summary>
-public sealed class AudioService : IDisposable
+public interface IAudioService : IDisposable
+{
+    event EventHandler<Exception?>? MonitoringStopped;
+    bool IsMonitoring { get; }
+    bool IsRecording { get; }
+    void StartMonitoring(int deviceId);
+    void StopMonitoring();
+    PitchMeasurement ReadPitch(double noiseGateRms = PitchDetector.DefaultGateRms);
+    void PlayTone(double frequency, double seconds);
+    void StopTone();
+    string StartRecording(string directory);
+    string? FinishRecording();
+    string? TakeAutomaticallyFinishedRecording();
+}
+
+public sealed class AudioService : IAudioService
 {
     private readonly object _bufferLock = new();
     private readonly object _recordLock = new();

@@ -385,7 +385,12 @@
 <StackPanel x:Name="ExerciseControlsHost" Margin="0,0,16,0"><Border Style="{StaticResource Panel}">
                         <StackPanel>
                             <TextBlock Text="УПРАЖНЕНИЕ JSON" Style="{StaticResource Caption}"/><ComboBox xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="ExerciseSelector" Margin="0,12,0,6" ItemsSource="{Binding ExerciseChoices}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedExercise, Mode=TwoWay}" IsEnabled="{Binding CanChooseExercise}" ToolTip="{Binding SelectedExercise.SourcePath}"/>
-                            <TextBlock Text="{Binding ExerciseTitle}" TextWrapping="Wrap" FontSize="20" FontWeight="SemiBold" Margin="0,10,0,9"/><Button Content="↑  Импорт JSON" Command="{Binding ImportExerciseCommand}"/><Button Content="▶  Начать упражнение" Command="{Binding StartExerciseCommand}" Style="{StaticResource PrimaryButton}" Margin="0,9,0,0"/><Button Content="{Binding ExercisePauseButtonText}" Command="{Binding ToggleExercisePauseCommand}" Margin="0,9,0,0"/><Button Content="↻  Повторить ноту [R]" Command="{Binding RepeatStepCommand}" Margin="0,9,0,0"/><Button Content="↷  Пропустить текущую ноту [N]" Command="{Binding SkipStepCommand}" Margin="0,9,0,0"/><Button Content="■  Прервать упражнение" Command="{Binding StopExerciseCommand}" Style="{StaticResource StopButton}" Margin="0,9,0,0"/>
+                            <TextBlock Text="{Binding ExerciseTitle}" TextWrapping="Wrap" FontSize="20" FontWeight="SemiBold" Margin="0,10,0,9"/>
+                            <TextBlock Text="ТИП УПРАЖНЕНИЯ" Style="{StaticResource Caption}" Margin="0,14,0,6"/>
+                            <ComboBox x:Name="ExerciseModeSelector" ItemsSource="{Binding ExerciseModes}" DisplayMemberPath="Title" SelectedValuePath="Code" SelectedValue="{Binding ExerciseModeCode, Mode=TwoWay}" IsEnabled="{Binding CanChooseExercise}"/>
+                            <CheckBox x:Name="ExerciseReferenceToggle" Content="Проиграть эталон" IsChecked="{Binding ExercisePlayReference, Mode=TwoWay}" IsEnabled="{Binding CanChooseExercise}" Foreground="{StaticResource TextPrimary}" Margin="0,10,0,0"/>
+                            <TextBlock Text="В последовательности вся секция звучит целиком, затем после отсчёта повтори её в том же темпе. R и N — повтор и пропуск всей фразы." Foreground="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            <Button Content="↑  Импорт JSON" Command="{Binding ImportExerciseCommand}"/><Button Content="▶  Начать упражнение" Command="{Binding StartExerciseCommand}" Style="{StaticResource PrimaryButton}" Margin="0,9,0,0"/><Button Content="{Binding ExercisePauseButtonText}" Command="{Binding ToggleExercisePauseCommand}" Margin="0,9,0,0"/><Button Content="{Binding RepeatExerciseText}" Command="{Binding RepeatStepCommand}" Margin="0,9,0,0"/><Button Content="{Binding SkipExerciseText}" Command="{Binding SkipStepCommand}" Margin="0,9,0,0"/><Button Content="■  Прервать упражнение" Command="{Binding StopExerciseCommand}" Style="{StaticResource StopButton}" Margin="0,9,0,0"/>
                             <TextBlock Text="{Binding ExerciseDescription}" TextWrapping="Wrap" Foreground="{StaticResource Subtle}" FontSize="12"/>
                             <Border Background="#1D3047" CornerRadius="8" Padding="10,9" Margin="0,13,0,15">
                                 <TextBlock Text="{Binding ExerciseMeta}" FontSize="12" Foreground="#BDD9F8"/>
@@ -423,6 +428,12 @@
 <controls:TunerGauge x:Name="ExerciseTunerGauge" Cents="{Binding TunerCents}" Height="100" Margin="0,8,0,0"/>
 <TextBlock Text="{Binding AccuracyText}" Foreground="{Binding AccuracyBrush}"/>
 <TextBlock Text="{Binding FeedbackStatus}" Foreground="{StaticResource Subtle}" Margin="0,6,0,0"/>
+<TextBlock Text="ГРАФИК ТЮНЕРА · ПОСЛЕДНИЕ 30 СЕКУНД" Style="{StaticResource Caption}" Margin="0,15,0,6"/>
+<controls:PitchGraph x:Name="ExercisePitchGraph" Points="{Binding ExercisePitchPoints}" Height="150"/>
+<StackPanel Margin="0,14,0,0"><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasSequenceGraph}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+<TextBlock Text="ФРАЗА · ЭТАЛОН И ИСПОЛНЕНИЕ" Style="{StaticResource Caption}" Margin="0,0,0,6"/>
+<controls:PianoRoll x:Name="ExerciseSequenceGraph" Targets="{Binding SequenceTargets}" Voice="{Binding SequenceVoice}" Duration="{Binding SequenceDuration}" PlayheadSeconds="{Binding SequenceCursor}" ViewWindowSeconds="{Binding SequenceDuration}" AccuracyToleranceCents="{Binding SelectedTolerance}" Height="220"/>
+</StackPanel>
 </StackPanel></Border><Border Style="{StaticResource Panel}" Margin="0">
                         <StackPanel>
                             <Grid>
@@ -601,6 +612,10 @@
                                 <Border Style="{StaticResource Panel}">
                                     <StackPanel>
                                         <TextBlock Text="ОБЩИЕ ПОЛЯ" Style="{StaticResource Caption}"/>
+                                        <TextBlock Text="Тип упражнения" Margin="0,12,0,6"/>
+                                        <ComboBox x:Name="EditorExerciseModeSelector" ItemsSource="{Binding ExerciseEditor.Modes}" DisplayMemberPath="Title" SelectedValuePath="Code" SelectedValue="{Binding ExerciseEditor.Mode, Mode=TwoWay}"/>
+                                        <CheckBox Content="Проиграть эталон" IsChecked="{Binding ExerciseEditor.PlayReference, Mode=TwoWay}" Foreground="{StaticResource TextPrimary}" Margin="0,10,0,0"/>
+                                        <TextBlock Text="Для последовательности каждая секция — одна фраза. Длительность нот эталона и исполнения задаёт «Пение, с», промежутки — «Пауза, с»." Foreground="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                                         <TextBlock Text="Название" Margin="0,13,0,6"/>
                                         <TextBox Text="{Binding ExerciseEditor.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                         <TextBlock Text="Описание" Margin="0,12,0,6"/>

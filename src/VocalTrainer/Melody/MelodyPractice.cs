@@ -3,8 +3,12 @@ namespace VocalTrainer.Melody;
 public sealed record TimedTarget(int Index, int Midi, double StartSeconds, double DurationSeconds)
 {
     public double EndSeconds => StartSeconds + DurationSeconds;
+    public double? ToleranceCents { get; init; }
 }
-public sealed record VoiceSample(double Seconds, double? MidiPitch, double? DeviationCents);
+public sealed record VoiceSample(double Seconds, double? MidiPitch, double? DeviationCents)
+{
+    public double? ToleranceCents { get; init; }
+}
 
 /// <summary>Plot data independent of WPF. Missing observations break the trace, even at the same pitch.</summary>
 public static class VoicePlot

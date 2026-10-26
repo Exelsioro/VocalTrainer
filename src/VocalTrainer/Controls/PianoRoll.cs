@@ -183,7 +183,7 @@ public sealed class PianoRoll : FrameworkElement
             if (right < rect.Left || left > rect.Right) continue;
             double y = Y(note.Midi);
             bool active = PlayheadSeconds >= note.StartSeconds && PlayheadSeconds < note.EndSeconds;
-            double noteHeight = Math.Max(4, rowHeight * 2 * tolerance / 100);
+            double noteHeight = Math.Max(4, rowHeight * 2 * (note.ToleranceCents ?? tolerance) / 100);
             dc.DrawRoundedRectangle(active ? ActiveNoteBrush : NoteBrush, NoteOutlinePen,
                 new Rect(left, y - noteHeight / 2, Math.Max(2, right - left - 1), noteHeight), 3, 3);
         }
@@ -193,12 +193,13 @@ public sealed class PianoRoll : FrameworkElement
             VoiceSample? previousSample = null;
             foreach (var sample in stroke)
             {
-                var pen = sample.DeviationCents is not { } cents ? RestPen : Math.Abs(cents) <= tolerance ? AccuratePen : VoicePen;
+                bool Accurate(VoiceSample point) => point.DeviationCents is { } cents && Math.Abs(cents) <= (point.ToleranceCents ?? tolerance);
+                var pen = sample.DeviationCents is null ? RestPen : Accurate(sample) ? AccuratePen : VoicePen;
                 var current = new Point(X(sample.Seconds), Y(sample.MidiPitch!.Value));
                 if (previous is { } prior)
                 {
                     var segmentPen = previousSample!.DeviationCents is not { } previousCents || sample.DeviationCents is not { } currentCents
-                        ? RestPen : Math.Abs(previousCents) <= tolerance && Math.Abs(currentCents) <= tolerance ? AccuratePen : VoicePen;
+                        ? RestPen : Accurate(previousSample) && Accurate(sample) ? AccuratePen : VoicePen;
                     dc.DrawLine(VoiceOutlinePen, prior, current);
                     dc.DrawLine(segmentPen, prior, current);
                 }

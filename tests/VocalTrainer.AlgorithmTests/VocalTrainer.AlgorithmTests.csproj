@@ -26,6 +26,7 @@
     <Compile Include="../../src/VocalTrainer/Practice/EarTrainingLogic.cs" Link="EarTrainingLogic.cs" />
     <Compile Include="../../src/VocalTrainer/Practice/RangeScoring.cs" Link="RangeScoring.cs" />
     <Compile Include="../../src/VocalTrainer/Practice/EditorModels.cs" Link="EditorModels.cs" />
+    <Compile Include="../../src/VocalTrainer/Practice/SequenceAttempt.cs" Link="SequenceAttempt.cs" />
     <Compile Include="../../src/VocalTrainer/Practice/ExerciseLibrary.cs" Link="ExerciseLibrary.cs" />
     <Compile Include="../../src/VocalTrainer/Practice/RangeHistoryStore.cs" Link="RangeHistoryStore.cs" />
     <Content Include="../fixtures/*.mid" Link="fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

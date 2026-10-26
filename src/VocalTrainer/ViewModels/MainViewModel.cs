@@ -22,9 +22,9 @@ public sealed record FeedbackModeOption(string Code, string Title)
 }
 
 /// <summary>Presentation state and commands; no WPF controls are referenced.</summary>
-public sealed class MainViewModel : ObservableObject, IDisposable
+public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
-    private readonly AudioService _audio;
+    private readonly IAudioService _audio;
     private readonly IDialogService _dialogs;
     private readonly ExerciseLibrary _exerciseLibrary = new(Path.Combine(AppDataPaths.Root, "exercise-library.json"));
     private ExerciseLibraryEntry? _selectedExercise;
@@ -224,7 +224,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public RelayCommand ToggleExercisePauseCommand { get; }
     public RelayCommand RepeatStepCommand { get; }
 
-    public MainViewModel(AudioService audio, IDialogService dialogs)
+    public MainViewModel(IAudioService audio, IDialogService dialogs)
     {
         _audio = audio;
         _dialogs = dialogs;
@@ -544,9 +544,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void RefreshFeedbackVisibility()
     {
         // The exercise's target note remains visible. Only live microphone feedback is hidden.
+        string phase = _exercisePaused ? _unpausedPhase : ExercisePhase;
         FeedbackHidden = ExerciseActive && ((SelectedFeedbackMode?.Code == "test") ||
-            (SelectedFeedbackMode?.Code == "ear" && ExercisePhase == "ПОЙ И УДЕРЖИВАЙ"));
+            (SelectedFeedbackMode?.Code == "ear" && phase is "ПОЙ И УДЕРЖИВАЙ" or "ПОВТОРИ ФРАЗУ"));
         OnChanged(nameof(FeedbackStatus));
+        OnChanged(nameof(ExercisePitchPoints)); OnChanged(nameof(SequenceVoice));
         if (FeedbackHidden)
         {
             DetectedNoteText = "—";
@@ -579,6 +581,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void ApplyPitchMeasurement(PitchMeasurement result, long timestampMs)
     {
         if (_exercisePaused || Melody.IsPaused) return;
+        ObserveSequencePitch(result);
         double? freeCents = null;
         if (FreeSingingEnabled)
         {
@@ -590,8 +593,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Melody.OnMicrophoneSample(result.FrequencyHz, result.Confidence);
         if (_attemptAssessment is not null && _exerciseClock is not null)
             _attemptAssessment.Add(result, (long)(_exerciseClock.ElapsedSeconds * 1000));
-        if (FeedbackHidden) return;
         double? cents = FreeSingingEnabled ? freeCents : result.FrequencyHz is { } hz && hz > 0 && double.IsFinite(hz) ? NoteCatalog.Cents(hz, NoteCatalog.ToFrequency(_targetMidi)) : null;
+        ObserveExerciseGraph(timestampMs, result.Confidence >= .65 ? cents : null);
+        if (FeedbackHidden) return;
         if (result.FrequencyHz is { } frequency && frequency > 0 && double.IsFinite(frequency) && result.Confidence >= 0.65 && cents.HasValue)
         {
             int midi = NoteCatalog.NearestMidi(frequency);
@@ -643,13 +647,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void ActivateExercise(ExerciseDocument doc, string path)
     {
         _exercise = doc;
+        ExerciseModeCode = doc.Mode; ExercisePlayReference = doc.PlayReference;
+        ClearSequenceGraph();
         ExerciseTitle = doc.Title;
         ExerciseDescription = doc.Description;
         ExerciseGoals = doc.Goals?.Count > 0 ? string.Join("  •  ", doc.Goals) : "Не заданы";
         ExerciseTasks = doc.Tasks?.Count > 0 ? string.Join("  •  ", doc.Tasks) : "Не заданы";
-        int notes = doc.Sections.Sum(x => x.Notes.Count);
-        double duration = doc.Sections.Sum(s => s.Notes.Sum(n => n.PreviewSeconds + n.HoldSeconds + n.TransitionSeconds));
-        ExerciseMeta = $"{doc.Sections.Count} секц.   ·   {notes} нот   ·   {duration / 60:0.#} мин";
+        UpdateExerciseMeta();
         ExerciseProgress = 0;
         ExercisePhase = "ГОТОВО";
         ExercisePosition = "Нажми «Начать упражнение»";
@@ -687,6 +691,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _repeatRequested = false;
         _successfulSteps = _evaluatedSteps = 0;
         _exerciseResults.Clear();
+        _sequenceSummaries.Clear();
+        _exercisePitch.Clear(); OnChanged(nameof(ExercisePitchPoints)); ClearSequenceGraph();
         LatestAssessmentText = SelectedFeedbackMode?.Code == "test"
             ? "Контрольный режим: все оценки появятся после упражнения."
             : "Упражнение началось. Результаты будут показаны после каждой ноты.";
@@ -697,7 +703,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             exercise.SchemaVersion, exercise.Title, exercise.Description, exercise.Goals, exercise.Tasks,
             sectionCount = exercise.Sections.Count, feedbackMode = SelectedFeedbackMode?.Code,
             defaultToleranceCents = SelectedTolerance, defaultMaxAttempts = SelectedMaxAttempts,
-            defaultAutoRepeat = AutoRepeatFailed
+            defaultAutoRepeat = AutoRepeatFailed, mode = ExerciseModeCode, playReference = ExercisePlayReference
         });
         int completed = 0;
         int total = exercise.Sections.Sum(s => s.Notes.Count);
@@ -708,6 +714,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 var section = exercise.Sections[si];
                 ShowSectionTimeline(si);
                 _log?.Event("exercise_section_start", new { sectionIndex = si, section.Title, section.Description });
+                if (ExerciseModeCode == "sequence")
+                {
+                    await RunSequenceSectionAsync(section, si, completed, total, cts.Token);
+                    completed += section.Notes.Count;
+                    ExerciseProgress = 100.0 * completed / total;
+                    continue;
+                }
                 for (int ni = 0; ni < section.Notes.Count; ni++)
                 {
                     cts.Token.ThrowIfCancellationRequested();
@@ -731,8 +744,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                         _log?.Event("attempt_start", new { sectionIndex = si, noteIndex = ni, attempt,
                             targetMidi = midi, settings.ToleranceCents, settings.RequiredAccuracy });
                         _log?.SetPhase("preview", new { sectionIndex = si, noteIndex = ni, attempt });
-                        _audio.PlayTone(NoteCatalog.ToFrequency(midi), step.PreviewSeconds);
-                        await RunPhaseAsync("СЛУШАЙ ЭТАЛОН", step.PreviewSeconds, completed, total, cts.Token);
+                        if (ExercisePlayReference)
+                        {
+                            _audio.PlayTone(NoteCatalog.ToFrequency(midi), step.PreviewSeconds);
+                            await RunPhaseAsync("СЛУШАЙ ЭТАЛОН", step.PreviewSeconds, completed, total, cts.Token);
+                        }
                         _audio.StopTone();
                         cts.Token.ThrowIfCancellationRequested();
                         if (_repeatRequested)
@@ -788,7 +804,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             ExercisePosition = "Упражнение завершено. Статистика сохранена в JSONL.";
             if (SelectedFeedbackMode?.Code == "test")
                 LatestAssessmentText = $"Контроль: {_successfulSteps}/{_evaluatedSteps} удачных попыток. " +
-                    $"Средняя точность {(_exerciseResults.Count == 0 ? 0 : _exerciseResults.Average(r => r.AccuratePercent)):0.#}% среди распознанных кадров.";
+                    $"Средняя точность {(_exerciseResults.Count == 0 ? 0 : _exerciseResults.Average(r => r.AccuratePercent)):0.#}% среди распознанных кадров." +
+                    (_sequenceSummaries.Count == 0 ? "" : "\n" + string.Join("\n", _sequenceSummaries));
         }
         catch (OperationCanceledException)
         {
@@ -805,6 +822,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         finally
         {
             _attemptAssessment = null;
+            _sequenceAttempt = null;
             _skipRequested = false;
             _audio.StopTone();
             _log?.SetPhase("manual");
@@ -819,7 +837,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task RunPhaseAsync(string name, double seconds, int finished, int total, CancellationToken token)
+    private async Task RunPhaseAsync(string name, double seconds, int finished, int total, CancellationToken token, Action? update = null)
     {
         ExercisePhase = name;
         _unpausedPhase = name;
@@ -833,6 +851,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 token.ThrowIfCancellationRequested();
                 if (_skipRequested || _repeatRequested) break;
+                if (!_exercisePaused) update?.Invoke();
                 double remaining = Math.Max(0, seconds - (_exerciseClock.ElapsedSeconds - _phaseStartSeconds));
                 ExerciseCountdown = $"{remaining:F1} с";
                 if (!_exercisePaused && remaining <= 0) break;

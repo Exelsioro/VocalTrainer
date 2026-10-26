@@ -7,6 +7,8 @@
   "required": ["schemaVersion", "title", "sections"],
   "properties": {
     "schemaVersion": { "const": 1 },
+    "mode": { "type": "string", "enum": ["notes", "sequence"], "default": "notes" },
+    "playReference": { "type": "boolean", "default": true },
     "title": { "type": "string", "minLength": 1, "maxLength": 160 },
     "description": { "type": "string", "maxLength": 3000 },
     "goals": { "type": "array", "maxItems": 30, "items": { "type": "string" } },

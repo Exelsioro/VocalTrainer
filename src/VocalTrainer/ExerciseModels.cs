@@ -9,11 +9,19 @@ namespace VocalTrainer;
 public sealed class ExerciseDocument
 {
     public int SchemaVersion { get; set; } = 1;
+    public string Mode { get; set; } = "notes";
+    public bool PlayReference { get; set; } = true;
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public List<string>? Goals { get; set; }
     public List<string>? Tasks { get; set; }
     public List<ExerciseSection> Sections { get; set; } = [];
+}
+
+public sealed record ExerciseModeOption(string Code, string Title)
+{
+    public static IReadOnlyList<ExerciseModeOption> All { get; } =
+        [new("notes", "По одной ноте"), new("sequence", "Повтори последовательность")];
 }
 
 public sealed class ExerciseSection
@@ -81,6 +89,7 @@ public static class ExerciseIO
     public static void Validate(ExerciseDocument doc)
     {
         if (doc.SchemaVersion != 1) throw new FormatException("Поддерживается только schemaVersion = 1.");
+        if (doc.Mode is not ("notes" or "sequence")) throw new FormatException("Режим упражнения: notes или sequence.");
         if (string.IsNullOrWhiteSpace(doc.Title) || doc.Title.Length > 160)
             throw new FormatException("Поле title обязательно (до 160 символов).");
         if (doc.Description is null || doc.Description.Length > 3000)
@@ -113,7 +122,9 @@ public static class ExerciseIO
                     throw new FormatException($"{note.Note}: requiredAccuracy допустимо 0,1–1,0.");
                 if (note.MaxAttempts is { } attempts && attempts is < 1 or > 8)
                     throw new FormatException($"{note.Note}: maxAttempts допустимо 1–8.");
-                totalDuration += note.PreviewSeconds + note.HoldSeconds + note.TransitionSeconds;
+                totalDuration += doc.Mode == "sequence"
+                    ? (note.HoldSeconds + note.TransitionSeconds) * (doc.PlayReference ? 2 : 1)
+                    : (doc.PlayReference ? note.PreviewSeconds : 0) + note.HoldSeconds + note.TransitionSeconds;
             }
         }
         if (totalDuration > 3600) throw new FormatException("Длительность упражнения не должна превышать 60 минут.");

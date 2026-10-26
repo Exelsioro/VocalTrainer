@@ -677,3 +677,43 @@ using (var seekMelody = new MelodyViewModel((hz, _) => seekTones.Enqueue(hz), ()
         "seek scoring counts only the new observed segment and records navigation");
 }
 Console.WriteLine("Free singing and timeline seek checks passed.");
+
+var phraseDocument = new ExerciseDocument { Title = "Фраза", Mode = "sequence", PlayReference = false,
+    Sections = [new() { Title = "Секция", Notes = [new() { Note = "C3", HoldSeconds = 1, TransitionSeconds = .25 },
+        new() { Note = "D3", HoldSeconds = 1, TransitionSeconds = .25, ToleranceCents = 10 },
+        new() { Note = "D3", HoldSeconds = 1 }] }] };
+ExerciseIO.Validate(phraseDocument);
+var phraseJson = System.Text.Json.JsonSerializer.Serialize(phraseDocument, ExerciseIO.Options);
+var reopenedPhrase = System.Text.Json.JsonSerializer.Deserialize<ExerciseDocument>(phraseJson, ExerciseIO.Options)!;
+Check(reopenedPhrase.Mode == "sequence" && !reopenedPhrase.PlayReference, "sequence mode and optional reference survive exercise JSON roundtrip");
+var oldExercise = System.Text.Json.JsonSerializer.Deserialize<ExerciseDocument>("{\"title\":\"Old\",\"sections\":[]}", ExerciseIO.Options)!;
+Check(oldExercise.Mode == "notes" && oldExercise.PlayReference, "old JSON exercises keep single-note mode with reference enabled");
+var phraseEditor = ExerciseEditorDocument.Unpack(phraseDocument);
+var editedPhrase = ExerciseEditorDocument.Build("Edited", "", "", "", phraseEditor, "sequence", false);
+Check(editedPhrase.Mode == "sequence" && !editedPhrase.PlayReference && editedPhrase.Sections[0].Notes[1].ToleranceCents == 10,
+    "exercise editor preserves sequence mode, reference choice and note-specific rules");
+phraseDocument.Mode = "wrong"; Rejects<FormatException>(() => ExerciseIO.Validate(phraseDocument), "unknown exercise mode rejected"); phraseDocument.Mode = "sequence";
+var phraseAttempt = new SequenceAttempt(phraseDocument.Sections[0], 25);
+Check(phraseAttempt.Duration == 3.5 && phraseAttempt.Targets[1].StartSeconds == 1.25 && phraseAttempt.Targets[2].Index == 2,
+    "phrase timing includes rests and preserves repeated notes as separate targets");
+Check(phraseAttempt.At(1.1) is null && phraseAttempt.At(1.25)?.Midi == 50 && phraseAttempt.At(3.5) is null,
+    "phrase rests and exact note boundaries use the same fixed timeline");
+foreach (var target in phraseAttempt.Targets)
+    for (int frame = 0; frame < 8; frame++) phraseAttempt.Add(new(NoteCatalog.ToFrequency(target.Midi), .1, .99), target.StartSeconds + .05 + frame * .1);
+var perfectPhrase = phraseAttempt.Finish();
+Check(perfectPhrase.Success && perfectPhrase.Passed == 3 && perfectPhrase.Notes.All(n => n.Assessment.AccuratePercent == 100),
+    "correctly repeated phrase passes every note with separate measurements");
+var missingPhrase = new SequenceAttempt(phraseDocument.Sections[0], 25);
+for (int frame = 0; frame < 8; frame++) missingPhrase.Add(new(NoteCatalog.ToFrequency(48), .1, .99), .05 + frame * .1);
+Check(missingPhrase.Finish().Passed == 1 && !missingPhrase.Finish().Success && missingPhrase.Finish().Notes[1].Assessment.Frames == 0,
+    "omitted phrase notes remain failures instead of receiving credit");
+var wrongPhrase = new SequenceAttempt(phraseDocument.Sections[0], 25);
+foreach (var target in wrongPhrase.Targets)
+    for (int frame = 0; frame < 8; frame++) wrongPhrase.Add(new(NoteCatalog.ToFrequency(target.Midi + 12), .1, .99), target.StartSeconds + .05 + frame * .1);
+Check(wrongPhrase.Finish().Passed == 0 && wrongPhrase.Finish().Notes[0].Assessment.MeanAbsoluteCents == 1200, "phrase analysis exposes octave mistakes");
+var strictPhrase = new SequenceAttempt(phraseDocument.Sections[0], 25);
+var strictSample = strictPhrase.Add(new(NoteCatalog.ToFrequency(50) * Math.Pow(2, 20.0 / 1200), .1, .99), 1.3);
+Check(strictSample.ToleranceCents == 10 && strictPhrase.Targets[1].ToleranceCents == 10, "phrase graph carries each note's actual assessment tolerance");
+var quietSample = strictPhrase.Add(new(null, .001, 0), 1.4);
+Check(quietSample.MidiPitch is null && strictPhrase.Finish().Notes[1].Assessment.AccurateFrames == 0, "silence breaks phrase graph and cannot pass an assessment");
+Console.WriteLine("Sequence exercise analysis checks passed.");

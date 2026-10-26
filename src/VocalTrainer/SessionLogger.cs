@@ -78,7 +78,7 @@ public sealed class SessionLogger : IDisposable
         double targetHz = NoteCatalog.ToFrequency(midi);
         double? cents = pitch.FrequencyHz is { } hz ? NoteCatalog.Cents(hz, targetHz) : null;
         if (pitch.Confidence < 0.65) cents = null;
-        bool evaluate = _phase is "manual" or "hold";
+        bool evaluate = _phase is "manual" or "hold" or "sequence_hold";
         if (evaluate)
         {
             _observations++;

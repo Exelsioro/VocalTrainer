@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "mode": "sequence",
+  "playReference": true,
+  "title": "Повтори фразу: До — Ре — Ми",
+  "description": "Послушай всю фразу, затем после отсчёта повтори её в том же темпе. Пой в удобной громкости, не форсируй звук.",
+  "goals": ["Запомнить последовательность", "Повторить высоту и порядок нот"],
+  "tasks": ["Сначала слушай, затем пой", "Следи за маркером времени и графиком"],
+  "sections": [
+    {
+      "title": "Восходящая фраза",
+      "notes": [
+        { "note": "C3", "previewSeconds": 1, "holdSeconds": 1.5, "transitionSeconds": 0.3 },
+        { "note": "D3", "previewSeconds": 1, "holdSeconds": 1.5, "transitionSeconds": 0.3 },
+        { "note": "E3", "previewSeconds": 1, "holdSeconds": 1.5, "transitionSeconds": 1 }
+      ]
+    }
+  ]
+}
