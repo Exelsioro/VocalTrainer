@@ -20,6 +20,7 @@ public sealed class SessionLogger : IDisposable
     private int _freeFrames, _freeVoiced, _freeAccurate;
     private double _freeError;
     public string FilePath { get; }
+    public string SessionId { get; } = Guid.NewGuid().ToString("N");
     public long ElapsedMs => _watch.ElapsedMilliseconds;
 
     public SessionLogger(string directory, int targetMidi, string microphoneName)
@@ -28,7 +29,7 @@ public sealed class SessionLogger : IDisposable
         FilePath = Path.Combine(directory, $"session-{DateTime.Now:yyyyMMdd-HHmmss-fff}.jsonl");
         _writer = new StreamWriter(FilePath, false, new UTF8Encoding(false)) { AutoFlush = true };
         Event("session_start", new {
-            schemaVersion = 2, appVersion = "0.5.1", timestampUtc = DateTimeOffset.UtcNow.ToString("O"),
+            schemaVersion = 3, sessionId = SessionId, appVersion = "0.5.1", timestampUtc = DateTimeOffset.UtcNow.ToString("O"),
             microphoneName, sampleRate = PitchDetector.SampleRate, analysisWindowSamples = PitchDetector.FrameSamples,
             detector = "YIN-like CMND", calibrationHz = 440.0, initialTargetMidi = targetMidi,
             noteConvention = "C4=261.63Hz=До первой октавы", audioStoredInLog = false,
@@ -111,7 +112,7 @@ public sealed class SessionLogger : IDisposable
         }));
     }
 
-    public string Finish()
+    public string Finish(string status = "completed")
     {
         if (_finished) return "Занятие завершено";
         string result = _observations == 0 ? (_freeVoiced == 0 ? "Нет оценённых звуков" :
@@ -120,6 +121,7 @@ public sealed class SessionLogger : IDisposable
             $"Медианная ошибка: {Median(_absoluteErrors):0.#}¢";
         Event("session_end", new
         {
+            status,
             observations = _observations, voiced = _voiced, within25 = _within25, within50 = _within50,
             within25Percent = Ratio(_within25, _observations), within50Percent = Ratio(_within50, _observations),
             medianAbsoluteCents = Median(_absoluteErrors),

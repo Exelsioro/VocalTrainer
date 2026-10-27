@@ -9,6 +9,8 @@ public sealed class PracticeEventLog
     private readonly object _sync = new();
     private readonly string _path;
     private readonly string _runId = Guid.NewGuid().ToString("N");
+    private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+    private static readonly JsonSerializerOptions Options = new(ExerciseIO.Options) { WriteIndented = false };
 
     public PracticeEventLog(string directory)
     {
@@ -17,10 +19,10 @@ public sealed class PracticeEventLog
     }
 
     public string FilePath => _path;
-    public void Write(string eventType, object payload)
+    public void Write(string eventType, object payload, string? sessionId = null)
     {
-        var entry = new { schemaVersion = 1, timeUtc = DateTimeOffset.UtcNow, runId = _runId, eventType, payload };
-        var line = JsonSerializer.Serialize(entry, ExerciseIO.Options) + Environment.NewLine;
+        var entry = new { schemaVersion = 2, timeUtc = DateTimeOffset.UtcNow, elapsedMs = _clock.ElapsedMilliseconds, runId = _runId, sessionId, eventType, payload };
+        var line = JsonSerializer.Serialize(entry, Options) + Environment.NewLine;
         lock (_sync) File.AppendAllText(_path, line);
     }
 }

@@ -470,6 +470,7 @@ public sealed class MelodyViewModel : ObservableObject, IDisposable
             _previewCancel = null;
             IsPaused = false;
             IsPreviewing = false;
+            _log("midi_preview_end", new { cursor = Cursor, cancelled = cancel.IsCancellationRequested });
             Refresh();
         }
     }
@@ -485,7 +486,8 @@ public sealed class MelodyViewModel : ObservableObject, IDisposable
         IsCountingIn = true;
         _log("midi_practice_start", new { fileName = _song?.FileName, trackIndex = SelectedTrack?.Index,
             speedPercent = SpeedPercent, transposeSemitones = Transpose, duration = Duration,
-            notes = Targets.Count, loops = LoopCount, scoringToleranceCents = 40, singWithReference = SingWithReference });
+            fragmentStartSeconds = _preparedFrom, sourceSecondsPerPracticeSecond = _preparedSpeed, startCursorSeconds = Cursor,
+            notes = Targets.Count, targets = Targets, loops = LoopCount, scoringToleranceCents = 40, singWithReference = SingWithReference });
         Refresh();
         try
         {
@@ -512,7 +514,11 @@ public sealed class MelodyViewModel : ObservableObject, IDisposable
             Status = SingWithReference ? "Пой вместе с эталоном в наушниках. Голос показан поверх нот и оценивается." :
                 "Пой по синим нотам. Твой голос поверх эталона: зелёный — в пределах ±40 ¢, оранжевый — отклонение.";
         }
-        catch (OperationCanceledException) { Countdown = ""; Status = "Подготовка остановлена."; }
+        catch (OperationCanceledException)
+        {
+            Countdown = ""; Status = "Подготовка остановлена.";
+            _log("midi_practice_end", new { status = "cancelled_count_in" });
+        }
         finally
         {
             _countInCancel = null;
@@ -523,7 +529,7 @@ public sealed class MelodyViewModel : ObservableObject, IDisposable
         }
     }
 
-    public void OnMicrophoneSample(double? frequencyHz, double confidence)
+    public void OnMicrophoneSample(double? frequencyHz, double confidence, double? rms = null)
     {
         if (!IsPracticing || _clock is null || IsPaused) return;
         double elapsed = _clock.ElapsedSeconds;
@@ -550,7 +556,7 @@ public sealed class MelodyViewModel : ObservableObject, IDisposable
         Voice = _voices.ToArray();
         _scorer?.Add(seconds, frequencyHz, confidence);
         _log("midi_pitch_sample", new { seconds = Math.Round(seconds, 3),
-            lap = _lastLoop + 1, targetMidi = target?.Midi, frequencyHz, confidence, deviationCents = reliable && target is not null
+            lap = _lastLoop + 1, targetIndex = target?.Index, targetMidi = target?.Midi, frequencyHz, confidence, rms, deviationCents = reliable && target is not null
                 ? 1200 * Math.Log2(frequencyHz!.Value / NoteCatalog.ToFrequency(target.Midi)) : (double?)null });
     }
 

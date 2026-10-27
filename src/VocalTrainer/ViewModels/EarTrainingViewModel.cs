@@ -92,6 +92,7 @@ public sealed class EarTrainingViewModel : ObservableObject, IDisposable
         _playCancellation = cts;
         IsPlaying = true;
         CanAnswer = false;
+        _log("ear_playback_start", new { });
         try
         {
             Status = "Первая нота...";
@@ -114,6 +115,7 @@ public sealed class EarTrainingViewModel : ObservableObject, IDisposable
             _stopTone();
             _playCancellation = null;
             IsPlaying = false;
+            _log("ear_playback_end", new { cancelled = cts.IsCancellationRequested });
             Refresh();
         }
     }

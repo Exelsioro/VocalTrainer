@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/VocalTrainer/Export/*.cs" Link="Export/%(Filename)%(Extension)" />
+    <Compile Include="../../src/VocalTrainer/Practice/PracticeEventLog.cs" Link="PracticeEventLog.cs" />
+    <Compile Include="../../src/VocalTrainer/ViewModels/SessionExportViewModel.cs" Link="SessionExportViewModel.cs" />
     <Compile Include="../../src/VocalTrainer/NoteCatalog.cs" Link="NoteCatalog.cs" />
     <Compile Include="../../src/VocalTrainer/PitchDetector.cs" Link="PitchDetector.cs" />
     <Compile Include="../../src/VocalTrainer/ExerciseModels.cs" Link="ExerciseModels.cs" />

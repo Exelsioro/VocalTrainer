@@ -11,6 +11,7 @@ using VocalTrainer.Controls;
 using VocalTrainer.Melody;
 using VocalTrainer.Practice;
 using VocalTrainer.Services;
+using VocalTrainer.Export;
 
 internal static class Program
 {
@@ -52,6 +53,7 @@ internal static class Program
                     VerifyOctaveSelection(window, vm);
                     VerifyFreeSinging(window, vm);
                     if (!string.IsNullOrWhiteSpace(screenshotDirectory)) SaveScreenshot(window, screenshotDirectory, "free-singing.png");
+                    VerifySessionExport(window, screenshotDirectory);
                 }
                 if (index == 1) { VerifyExerciseLibrary(window, vm); VerifySequenceExercise(window, screenshotDirectory); }
                 if (index is 3 or 4)
@@ -91,6 +93,60 @@ internal static class Program
         Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,
             new Action(() => frame.Continue = false));
         Dispatcher.PushFrame(frame);
+    }
+
+    private static void VerifySessionExport(MainWindow window, string? screenshots)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "vocal-export-ui-" + Guid.NewGuid().ToString("N"));
+        string logs = Path.Combine(root, "Logs");
+        string report = Path.Combine(root, "session.zip");
+        bool available = true;
+        using var export = new SessionExportViewModel(root, () => available, _ => report);
+        var host = (StackPanel)window.FindName("SessionExportHost");
+        void Await(Task task)
+        {
+            var timeout = Stopwatch.StartNew();
+            while (!task.IsCompleted && timeout.Elapsed < TimeSpan.FromSeconds(15)) { DrainDispatcher(); Thread.Sleep(10); }
+            if (!task.IsCompleted) throw new Exception("Session export timed out.");
+            task.GetAwaiter().GetResult(); DrainDispatcher();
+        }
+        try
+        {
+            string logPath;
+            using (var logger = new SessionLogger(logs, 60, "Тестовый микрофон"))
+            {
+                logPath = logger.FilePath;
+                logger.Event("user_note", new { text = "Спокойное пение, удобно" });
+                logger.Sample(60, new(NoteCatalog.ToFrequency(60), .1, .99)); logger.Finish();
+            }
+            Await(export.RefreshAsync(logPath)); Await(export.PreviewAsync());
+            host.DataContext = new { Export = export }; DrainDispatcher(); window.UpdateLayout();
+            var picker = (ComboBox)window.FindName("ExportSessionPicker");
+            var button = (Button)window.FindName("ExportSessionButton");
+            if (picker.Items.Count != 1 || !Equals(picker.SelectedItem, export.SelectedSource) || !button.IsEnabled || !export.Preview.Contains("Тестовый микрофон"))
+                throw new Exception("Export selection, preview or command binding failed.");
+            available = false; export.RefreshAvailability(); DrainDispatcher();
+            if (button.IsEnabled) throw new Exception("Export remained available during active session.");
+            available = true; export.RefreshAvailability();
+            var checkboxes = host.Children.OfType<StackPanel>().Single().Children.OfType<CheckBox>().ToArray();
+            foreach (var checkbox in checkboxes) RequireContrast(checkbox.Foreground, (Brush)window.FindResource("Surface"), "export option");
+            checkboxes[0].IsChecked = false; checkboxes[1].IsChecked = false; checkboxes[2].IsChecked = false; DrainDispatcher();
+            if (export.IncludeNotes || export.IncludeDeviceInfo || export.IncludeHistory) throw new Exception("Export privacy checkboxes did not update options.");
+            host.BringIntoView(); DrainDispatcher(); window.UpdateLayout();
+            if (!string.IsNullOrWhiteSpace(screenshots)) SaveScreenshot(window, screenshots, "export-settings.png");
+            Await(export.ExportSelectedAsync());
+            var manifest = SessionReportArchive.ReadManifest(report);
+            if (manifest.GetProperty("options").GetProperty("includeNotes").GetBoolean() || !export.Status.Contains("Сохранено:"))
+                throw new Exception("Export did not write requested report/options.");
+            Console.WriteLine("OK export UI: session picker, preview, privacy bindings, active-session guard and verified ZIP");
+        }
+        finally
+        {
+            host.ClearValue(FrameworkElement.DataContextProperty);
+            foreach (var scroll in Descendants<ScrollViewer>(window).Where(s => s.Content is Grid)) scroll.ScrollToTop();
+            DrainDispatcher();
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
     }
 
     private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
@@ -314,6 +370,7 @@ internal static class Program
         public string? SelectLyrics() => null;
         public string? SaveLyrics() => null;
         public string? SaveExercise() => null;
+        public string? SaveSessionExport(string suggestedName) => null;
         public void Error(string title, string message) => throw new Exception(title + ": " + message);
         public void Info(string title, string message) { }
         public void OpenDataFolder(string path) { }

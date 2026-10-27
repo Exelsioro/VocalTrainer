@@ -717,3 +717,4 @@ Check(strictSample.ToleranceCents == 10 && strictPhrase.Targets[1].ToleranceCent
 var quietSample = strictPhrase.Add(new(null, .001, 0), 1.4);
 Check(quietSample.MidiPitch is null && strictPhrase.Finish().Notes[1].Assessment.AccurateFrames == 0, "silence breaks phrase graph and cannot pass an assessment");
 Console.WriteLine("Sequence exercise analysis checks passed.");
+ExportTests.Run(Check);

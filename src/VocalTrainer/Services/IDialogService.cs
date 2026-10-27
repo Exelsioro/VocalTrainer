@@ -12,6 +12,7 @@ public interface IDialogService
     string? SelectLyrics();
     string? SaveLyrics();
     string? SaveExercise();
+    string? SaveSessionExport(string suggestedName);
     void Error(string title, string message);
     void Info(string title, string message);
     void OpenDataFolder(string path);
@@ -19,6 +20,15 @@ public interface IDialogService
 
 public sealed class DesktopDialogService : IDialogService
 {
+    public string? SaveSessionExport(string suggestedName)
+    {
+        string folder = Path.Combine(AppDataPaths.Root, "Exports");
+        Directory.CreateDirectory(folder);
+        var dialog = new SaveFileDialog { Title = "Экспорт занятия для анализа", Filter = "Отчёт Vocal Trainer (*.zip)|*.zip",
+            InitialDirectory = folder, FileName = suggestedName, DefaultExt = ".zip", AddExtension = true, OverwritePrompt = true };
+        return dialog.ShowDialog(Application.Current.MainWindow) == true ? dialog.FileName : null;
+    }
+
     public string? SelectLyrics()
     {
         var dialog = new OpenFileDialog { Title = "Текст песни с разметкой или без неё", Filter = "Текст песни (*.lrc;*.txt)|*.lrc;*.txt", CheckFileExists = true };

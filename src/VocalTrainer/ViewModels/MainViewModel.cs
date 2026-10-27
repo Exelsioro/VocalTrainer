@@ -59,6 +59,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public ExerciseEditorViewModel ExerciseEditor { get; }
     public MelodyViewModel Melody { get; }
     public HotkeysViewModel Hotkeys { get; }
+    public SessionExportViewModel Export { get; }
     private int _selectedTabIndex;
     public int SelectedTabIndex { get => _selectedTabIndex; set { if (Set(ref _selectedTabIndex, value) && value == 1 && FreeSingingEnabled) SetFreeSingingMode(false, true); } }
     private ExerciseDocument? _exercise;
@@ -258,6 +259,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         SkipStepCommand = new RelayCommand(RequestSkip, () => CanSkipStep);
         ToggleExercisePauseCommand = new RelayCommand(ToggleExercisePause, () => CanPauseExercise);
         RepeatStepCommand = new RelayCommand(RequestRepeat, () => ExerciseActive);
+        Export = new SessionExportViewModel(AppDataPaths.Root,
+            () => !SessionActive && !_stoppingSession && !ExerciseActive && !Melody.IsBusy && !RangeDiagnostics.IsMeasuring && !EarTraining.IsPlaying,
+            _dialogs.SaveSessionExport);
         SelectedFeedbackMode = FeedbackModes[0];
         _syncSelection = true;
         SelectedNote = Notes[0];
@@ -276,6 +280,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _exerciseLibrary.Load(Path.Combine(AppContext.BaseDirectory, "exercises"), Path.Combine(AppDataPaths.Root, "Exercises"));
         SelectedExercise = ExerciseChoices.FirstOrDefault(e => Path.GetFileName(e.SourcePath).Equals("first-notes.json", StringComparison.OrdinalIgnoreCase)) ?? ExerciseChoices.FirstOrDefault();
         if (_exerciseLibrary.Warning is { } warning) StatusText = warning;
+        _ = Export.RefreshAsync();
     }
 
     private bool CanUseRangeDiagnostics() => SessionActive && !ExerciseActive &&
@@ -293,7 +298,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void LogPractice(string kind, object payload)
     {
-        try { _studyLog.Write(kind, payload); }
+        try { _studyLog.Write(kind, payload, _log?.SessionId); }
         catch (IOException ex) { StatusText = "Не удалось сохранить учебный лог: " + ex.Message; }
         _log?.Event("study_" + kind, payload);
     }
@@ -335,6 +340,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RangeDiagnostics.Refresh();
         ExerciseEditor.Refresh();
         Melody.Refresh();
+        Export?.RefreshAvailability();
     }
 
     private void UpdateManualSelection()
@@ -436,7 +442,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _noiseGateRms = PitchDetector.DefaultGateRms;
             CalibrationText = "Шумовой порог: 0,008 RMS · запусти калибровку в тишине";
             _log?.Event("training_configuration", new { mode = SelectedFeedbackMode?.Code, SelectedTolerance,
-                SelectedMaxAttempts, AutoRepeatFailed, minimumConfidence = 0.65 });
+                SelectedMaxAttempts, AutoRepeatFailed, minimumConfidence = 0.65,
+                referencePlayback = Melody.IsPreviewing ? "midi_preview" : EarTraining.IsPlaying ? "ear_reference" : null });
             if (FreeSingingEnabled) StartFreeSegment();
             SessionStateText = "МИКРОФОН АКТИВЕН";
             SessionButtonText = "Завершить занятие";
@@ -467,7 +474,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RecordButtonText = "Записать WAV";
         RecordingStatusText = finishedRecording is null ? "Запись выключена" : $"Сохранено: {Path.GetFileName(finishedRecording)}";
         if (FreeSingingEnabled) _log?.Event("free_singing_end", FreeSinging.Statistics);
-        SummaryText = _log?.Finish() ?? "Занятие завершено";
+        string? finishedLog = _log?.FilePath;
+        if (error is not null) _log?.Event("audio_error", new { errorType = error.GetType().Name, message = error.Message });
+        SummaryText = _log?.Finish(error is null ? "completed" : "audio_error") ?? "Занятие завершено";
         if (_log is not null) StatusText = "Лог: " + _log.FilePath;
         _log = null;
         _stoppingSession = false;
@@ -480,6 +489,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (error is not null) StatusText = "Ошибка микрофона: " + error.Message;
         RefreshFeedbackVisibility();
         RefreshCommands();
+        _ = Export.RefreshAsync(finishedLog);
     }
 
     private void ToggleRecording()
@@ -590,7 +600,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
         else if (!Melody.IsPracticing) _log?.Sample(_targetMidi, result);
         RangeDiagnostics.OnMeasurement(result);
-        Melody.OnMicrophoneSample(result.FrequencyHz, result.Confidence);
+        Melody.OnMicrophoneSample(result.FrequencyHz, result.Confidence, result.Rms);
         if (_attemptAssessment is not null && _exerciseClock is not null)
             _attemptAssessment.Add(result, (long)(_exerciseClock.ElapsedSeconds * 1000));
         double? cents = FreeSingingEnabled ? freeCents : result.FrequencyHz is { } hz && hz > 0 && double.IsFinite(hz) ? NoteCatalog.Cents(hz, NoteCatalog.ToFrequency(_targetMidi)) : null;
@@ -703,7 +713,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             exercise.SchemaVersion, exercise.Title, exercise.Description, exercise.Goals, exercise.Tasks,
             sectionCount = exercise.Sections.Count, feedbackMode = SelectedFeedbackMode?.Code,
             defaultToleranceCents = SelectedTolerance, defaultMaxAttempts = SelectedMaxAttempts,
-            defaultAutoRepeat = AutoRepeatFailed, mode = ExerciseModeCode, playReference = ExercisePlayReference
+            defaultAutoRepeat = AutoRepeatFailed, mode = ExerciseModeCode, playReference = ExercisePlayReference,
+            exercise = System.Text.Json.JsonSerializer.SerializeToElement(new ExerciseDocument {
+                SchemaVersion = exercise.SchemaVersion, Mode = ExerciseModeCode, PlayReference = ExercisePlayReference,
+                Title = exercise.Title, Description = exercise.Description, Goals = exercise.Goals, Tasks = exercise.Tasks,
+                Sections = exercise.Sections
+            }, ExerciseIO.Options)
         });
         int completed = 0;
         int total = exercise.Sections.Sum(s => s.Notes.Count);
@@ -989,6 +1004,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _uiTimer.Tick -= OnTick;
         _audio.MonitoringStopped -= OnMonitoringStopped;
         _audio.Dispose();
+        Export.Dispose();
         if (FreeSingingEnabled) _log?.Event("free_singing_end", FreeSinging.Statistics);
         _log?.Finish();
         _log = null;
